@@ -7,6 +7,36 @@ import { makeRng } from './rng.js';
 
 const POOL = { fence: 12, hay: 12, pumpkin: 12, crate: 12, corn: 40, knife: 6, oven: 2 };
 
+// Smoothing helper (threejs-syntax-geometries / threejs-geometry skill:
+// ExtrudeGeometry with a bevel gives a box whose edges catch the light
+// softly instead of a razor-sharp corner). A rounded-rectangle shape is
+// extruded with bevelThickness/bevelSize, and the shape/depth are shrunk
+// by the bevel first, so the outer footprint is identical to the sharp
+// BoxGeometry it replaces — visual only, positions and collision bounds
+// do not move. Bevel faces get smooth normals; flat caps stay flat.
+function roundedBoxGeometry(w, h, d, r, bevel) {
+  const hw = w / 2 - bevel;
+  const hh = h / 2 - bevel;
+  const cr = Math.max(0.01, Math.min(r, hw, hh));
+  const s = new THREE.Shape();
+  s.moveTo(-hw + cr, -hh);
+  s.lineTo(hw - cr, -hh);
+  s.absarc(hw - cr, -hh + cr, cr, -Math.PI / 2, 0, false);
+  s.lineTo(hw, hh - cr);
+  s.absarc(hw - cr, hh - cr, cr, 0, Math.PI / 2, false);
+  s.lineTo(-hw + cr, hh);
+  s.absarc(-hw + cr, hh - cr, cr, Math.PI / 2, Math.PI, false);
+  s.lineTo(-hw, -hh + cr);
+  s.absarc(-hw + cr, -hh + cr, cr, Math.PI, Math.PI * 1.5, false);
+  const depth = d - bevel * 2;
+  const geo = new THREE.ExtrudeGeometry(s, {
+    steps: 1, depth, bevelEnabled: true,
+    bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 4,
+  });
+  geo.translate(0, 0, -depth / 2);
+  return geo;
+}
+
 function skyMaterial() {
   return new THREE.ShaderMaterial({
     side: THREE.BackSide,
@@ -145,7 +175,7 @@ export function buildFarm(scene, textures) {
   });
 
   const hayMat = new THREE.MeshStandardMaterial({ map: textures.straw, roughness: 1 });
-  instanced(new THREE.ConeGeometry(1.1, 1.6, 10), hayMat, 40, (d, i) => {
+  instanced(new THREE.ConeGeometry(1.1, 1.6, 12), hayMat, 40, (d, i) => {
     const side = i % 2 === 0 ? -1 : 1;
     d.position.set(side * (6.5 + rng.next() * 4), 0.8, -rng.next() * 900);
     d.rotation.set(0, rng.next() * Math.PI, 0);
@@ -160,14 +190,14 @@ export function buildFarm(scene, textures) {
   building(-13, -95, 12, 6.5, 8, 0x9a2e22, 0x5d2a1a, [[-3, 3.5], [3, 3.5]]);
   const silo = new THREE.Group();
   const siloBody = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.7, 1.7, 7, 14),
+    new THREE.CylinderGeometry(1.7, 1.7, 7, 20),
     new THREE.MeshStandardMaterial({ color: 0xb8b0a0, roughness: 0.6, metalness: 0.3 }),
   );
   siloBody.position.y = 3.5;
   siloBody.castShadow = true;
   silo.add(siloBody);
   const siloCap = new THREE.Mesh(
-    new THREE.ConeGeometry(1.9, 1.6, 14),
+    new THREE.ConeGeometry(1.9, 1.6, 20),
     new THREE.MeshStandardMaterial({ color: 0x8a3b2a, roughness: 0.8 }),
   );
   siloCap.position.y = 7.8;
@@ -179,14 +209,14 @@ export function buildFarm(scene, textures) {
   // Windmill on the right; its two crossed blades turn in update().
   const mill = new THREE.Group();
   const millTower = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.9, 1.5, 9, 10),
+    new THREE.CylinderGeometry(0.9, 1.5, 9, 16),
     new THREE.MeshStandardMaterial({ color: 0xd8cbb0, roughness: 0.9 }),
   );
   millTower.position.y = 4.5;
   millTower.castShadow = true;
   mill.add(millTower);
   const millCap = new THREE.Mesh(
-    new THREE.ConeGeometry(1.2, 1.4, 10),
+    new THREE.ConeGeometry(1.2, 1.4, 16),
     new THREE.MeshStandardMaterial({ color: 0x8a3b2a, roughness: 0.9 }),
   );
   millCap.position.y = 9.6;
@@ -200,9 +230,9 @@ export function buildFarm(scene, textures) {
   mill.add(millBlades);
   mill.position.set(15, 0, -190);
   scene.add(mill);
-  // Water trough on the left, wood rim with a blue water plane.
+  // Water trough on the left: beveled wooden rim with a blue water plane.
   const trough = new THREE.Group();
-  const troughBox = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.7, 1.1), woodMat);
+  const troughBox = new THREE.Mesh(roundedBoxGeometry(2.4, 0.7, 1.1, 0.12, 0.08), woodMat);
   troughBox.position.y = 0.35;
   troughBox.castShadow = true;
   trough.add(troughBox);
@@ -271,20 +301,25 @@ export function buildFarm(scene, textures) {
     d.scale.set(1, 1, 1);
     d.rotation.set(0, 0, 0);
   });
-  // Cows: pale bodies, dark heads, standing side-on to the track.
+  // Cows: pale capsule bodies (same 1.7 m length, 0.9 m height as the old
+  // boxes), dark ellipsoid heads, standing side-on to the track.
   const cowMat = new THREE.MeshStandardMaterial({ color: 0xe8e0d0, roughness: 0.95 });
   const cowHeadMat = new THREE.MeshStandardMaterial({ color: 0x2e2e2e, roughness: 0.95 });
   function cowSpot(i) {
     const side = i % 2 === 0 ? -1 : 1;
     return [side * (8 + ((i * 23) % 50) / 10), -40 - ((i * 61) % 220)];
   }
-  instanced(new THREE.BoxGeometry(1.7, 0.95, 0.8), cowMat, 4, (d, i) => {
+  const cowBodyGeo = new THREE.CapsuleGeometry(0.45, 0.8, 4, 12);
+  cowBodyGeo.rotateZ(Math.PI / 2);
+  instanced(cowBodyGeo, cowMat, 4, (d, i) => {
     const [x, z] = cowSpot(i);
     d.position.set(x, 0.75, z);
     d.scale.set(1, 1, 1);
     d.rotation.set(0, 0, 0);
   });
-  instanced(new THREE.BoxGeometry(0.55, 0.55, 0.6), cowHeadMat, 4, (d, i) => {
+  const cowHeadGeo = new THREE.SphereGeometry(0.5, 12, 10);
+  cowHeadGeo.scale(0.55, 0.55, 0.6);
+  instanced(cowHeadGeo, cowHeadMat, 4, (d, i) => {
     const [x, z] = cowSpot(i);
     d.position.set(x + 0.95, 0.9, z);
     d.scale.set(1, 1, 1);
@@ -294,7 +329,9 @@ export function buildFarm(scene, textures) {
   // Buildings: farmhouse near the start, barn mid-track, oven in the kitchen.
   function building(x, z, w, h, dpt, wallColor, roofColor, windows) {
     const g = new THREE.Group();
-    const walls = new THREE.Mesh(new THREE.BoxGeometry(w, h, dpt), new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.95 }));
+    // Walls: beveled rounded box instead of a sharp BoxGeometry — same
+    // outer footprint, soft edges. The pyramid roof keeps its shape.
+    const walls = new THREE.Mesh(roundedBoxGeometry(w, h, dpt, 0.3, 0.12), new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.95 }));
     walls.position.y = h / 2;
     walls.castShadow = true;
     g.add(walls);
@@ -317,14 +354,15 @@ export function buildFarm(scene, textures) {
   building(-11, -30, 8, 4.5, 6, 0xe8dcc0, 0x8a3b2a, [[-2, 2.5], [2, 2.5]]);
   building(12, -330, 10, 5.5, 7, 0x9a4a2e, 0x5d2a1a, [[-2.5, 3], [2.5, 3]]);
 
-  // Kitchen ovens: black boxes with a glowing door and a chimney.
+  // Kitchen ovens: beveled black boxes with a glowing door and a chimney.
   const ovenLight = new THREE.PointLight(0xff6a1e, 30, 25, 1.6);
   ovenLight.position.set(0, 2.5, -760);
   scene.add(ovenLight);
   const ovenDoorMat = new THREE.MeshBasicMaterial({ color: 0xff7a1e });
+  const ovenBodyGeo = roundedBoxGeometry(5, 4, 3, 0.25, 0.15);
   [-750, -880].forEach((z) => {
     const oven = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(5, 4, 3), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.6, metalness: 0.4 }));
+    const body = new THREE.Mesh(ovenBodyGeo, new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.6, metalness: 0.4 }));
     body.position.y = 2;
     body.castShadow = true;
     oven.add(body);
@@ -340,10 +378,11 @@ export function buildFarm(scene, textures) {
     scene.add(oven);
   });
 
-  // Barn-stage clutter: two-high crate stacks and barrels along both
-  // sides of the track (300–700 m), and kitchen counters (700–1000 m).
-  // Instanced, so the whole lot is three draw calls.
-  instanced(new THREE.BoxGeometry(1.1, 1.1, 1.1), woodMat, 30, (d, i) => {
+  // Barn-stage clutter: two-high beveled crate stacks and bulging lathe
+  // barrels along both sides of the track (300–700 m), and beveled
+  // kitchen counters (700–1000 m). Instanced, so the whole lot is three
+  // draw calls.
+  instanced(roundedBoxGeometry(1.1, 1.1, 1.1, 0.12, 0.06), woodMat, 30, (d, i) => {
     const s = Math.floor(i / 2);
     const side = s % 2 === 0 ? -1 : 1;
     const x = side * (6.5 + ((s * 17) % 30) / 10);
@@ -353,14 +392,21 @@ export function buildFarm(scene, textures) {
     d.rotation.set(0, ((s * 19) % 10) / 10 * 0.6, 0);
   });
   const barrelMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.9 });
-  instanced(new THREE.CylinderGeometry(0.55, 0.55, 1.1, 12), barrelMat, 20, (d, i) => {
+  // A real barrel bulges at the middle: lathe profile, same 1.1 m height.
+  const barrelProfile = [
+    new THREE.Vector2(0.0, -0.55), new THREE.Vector2(0.48, -0.55),
+    new THREE.Vector2(0.56, -0.35), new THREE.Vector2(0.63, 0),
+    new THREE.Vector2(0.56, 0.35), new THREE.Vector2(0.48, 0.55),
+    new THREE.Vector2(0.0, 0.55),
+  ];
+  instanced(new THREE.LatheGeometry(barrelProfile, 12), barrelMat, 20, (d, i) => {
     const side = i % 2 === 0 ? -1 : 1;
     d.position.set(side * (6.5 + ((i * 23) % 40) / 10), 0.55, -320 - ((i * 53) % 370));
     d.scale.set(1, 1, 1);
     d.rotation.set(0, 0, 0);
   });
   const counterMat = new THREE.MeshStandardMaterial({ color: 0x4a3423, roughness: 0.85 });
-  instanced(new THREE.BoxGeometry(2.4, 1.0, 1.0), counterMat, 16, (d, i) => {
+  instanced(roundedBoxGeometry(2.4, 1.0, 1.0, 0.12, 0.08), counterMat, 16, (d, i) => {
     const side = i % 2 === 0 ? -1 : 1;
     d.position.set(side * 6.8, 0.5, -710 - ((i * 41) % 280));
     d.scale.set(1, 1, 1);
@@ -382,11 +428,13 @@ export function buildFarm(scene, textures) {
   scene.add(gate);
 
   // ---- Obstacle pool: recycled meshes, one shared geometry/material each.
-  const geoFence = new THREE.BoxGeometry(2.4, 1.0, 0.25);
-  const geoHay = new THREE.ConeGeometry(1.0, 1.5, 10);
+  // Sharp boxes are beveled the same way as the static props; cones get
+  // more radial segments. Same sizes and sync positions as before.
+  const geoFence = roundedBoxGeometry(2.4, 1.0, 0.25, 0.08, 0.04);
+  const geoHay = new THREE.ConeGeometry(1.0, 1.5, 12);
   const geoPumpkin = new THREE.SphereGeometry(0.7, 12, 10);
-  const geoCrate = new THREE.BoxGeometry(1.2, 1.2, 1.2);
-  const geoCorn = new THREE.ConeGeometry(0.22, 0.8, 8);
+  const geoCrate = roundedBoxGeometry(1.2, 1.2, 1.2, 0.12, 0.06);
+  const geoCorn = new THREE.ConeGeometry(0.22, 0.8, 10);
   const matPumpkin = new THREE.MeshStandardMaterial({ color: 0xe8721e, roughness: 0.8 });
   const matCorn = new THREE.MeshStandardMaterial({ color: 0xf2c230, roughness: 0.6 });
   const matBlade = new THREE.MeshStandardMaterial({ color: 0xd8dde2, roughness: 0.25, metalness: 0.9 });
