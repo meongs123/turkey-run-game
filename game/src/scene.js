@@ -609,9 +609,100 @@ export function buildFarm(scene, textures) {
   const geoHay = new THREE.ConeGeometry(1.0, 1.5, 12);
   const geoPumpkin = new THREE.SphereGeometry(0.7, 12, 10);
   const geoCrate = roundedBoxGeometry(1.2, 1.2, 1.2, 0.12, 0.06);
-  const geoCorn = new THREE.ConeGeometry(0.22, 0.8, 10);
+  // Turkey-face bonus pickup (replaces the corn cob): a painted face disc
+  // — same palette as turkey.js (orange head, yellow beak, red wattle /
+  // snood, googly eyes) — plus a bright gold ring that blooms slightly,
+  // so it reads as a pickup from the chase camera. Two meshes per pool
+  // slot, the same draw-call order as the old cone. The disc always faces
+  // +Z (toward the player/camera); hitbox and spawn are untouched —
+  // world.js still calls it kind 'corn'. Same technique as the tail
+  // feather texture in turkey.js: one CanvasTexture painted at boot.
+  function makeTurkeyFaceTexture() {
+    const S = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = S;
+    canvas.height = S;
+    const ctx = canvas.getContext('2d');
+    const cx = S / 2;
+    const cy = S / 2;
+    // Orange head, soft radial shade (lighter centre).
+    const grad = ctx.createRadialGradient(cx, cy - 10, 20, cx, cy, 128);
+    grad.addColorStop(0, '#f0963a');
+    grad.addColorStop(1, '#e87e1e');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, S, S);
+    // Gold rim just inside the disc edge.
+    ctx.strokeStyle = '#ffd23e';
+    ctx.lineWidth = 12;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 118, 0, Math.PI * 2);
+    ctx.stroke();
+    // Crest tuft on top.
+    ctx.fillStyle = '#d96a1e';
+    for (const dx of [-28, 0, 28]) {
+      ctx.beginPath();
+      ctx.ellipse(cx + dx, 34, 16, 22, dx * 0.02, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Googly eyes: white + pupils pushed out/down (turkey.js style).
+    for (const sign of [-1, 1]) {
+      const ex = cx + sign * 52;
+      const ey = cy - 38;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(ex, ey, 30, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#1a1a1a';
+      ctx.beginPath();
+      ctx.arc(ex + sign * 10, ey + 8, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(ex + sign * 10 - 4, ey + 8 - 4, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Snood: small red drop over the beak.
+    ctx.fillStyle = '#d42a2a';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - 2, 13, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Beak: yellow triangle pointing down.
+    ctx.fillStyle = '#f2c200';
+    ctx.beginPath();
+    ctx.moveTo(cx - 38, cy + 8);
+    ctx.lineTo(cx + 38, cy + 8);
+    ctx.lineTo(cx, cy + 72);
+    ctx.closePath();
+    ctx.fill();
+    // Wattle: red drop under the beak.
+    ctx.fillStyle = '#d42a2a';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 84, 20, 30, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    return tex;
+  }
+  const faceTex = makeTurkeyFaceTexture();
+  const geoFace = new THREE.CircleGeometry(0.32, 28);
+  const matFace = new THREE.MeshStandardMaterial({
+    map: faceTex, roughness: 0.7,
+    emissive: 0xffffff, emissiveMap: faceTex, emissiveIntensity: 0.35,
+  });
+  const geoFaceRing = new THREE.TorusGeometry(0.34, 0.025, 8, 32);
+  const matFaceRing = new THREE.MeshBasicMaterial({ color: 0xffd23e });
+  function makeTurkeyFacePickup() {
+    const g = new THREE.Group();
+    const face = new THREE.Mesh(geoFace, matFace);
+    face.scale.set(1, 1.25, 1);
+    g.add(face);
+    const ring = new THREE.Mesh(geoFaceRing, matFaceRing);
+    ring.scale.set(1, 1.25, 1);
+    g.add(ring);
+    return g;
+  }
   const matPumpkin = new THREE.MeshStandardMaterial({ color: 0xe8721e, roughness: 0.8 });
-  const matCorn = new THREE.MeshStandardMaterial({ color: 0xf2c230, roughness: 0.6 });
   const matBlade = new THREE.MeshStandardMaterial({ color: 0xd8dde2, roughness: 0.25, metalness: 0.9 });
   const matHandle = new THREE.MeshStandardMaterial({ color: 0x4a2c12, roughness: 0.9 });
   const matFlame = new THREE.MeshBasicMaterial({ color: 0xff8a1e });
@@ -637,7 +728,7 @@ export function buildFarm(scene, textures) {
       return m;
     }),
     crate: makePool('crate', POOL.crate, () => new THREE.Mesh(geoCrate, woodMat)),
-    corn: makePool('corn', POOL.corn, () => new THREE.Mesh(geoCorn, matCorn)),
+    corn: makePool('corn', POOL.corn, makeTurkeyFacePickup),
     knife: makePool('knife', POOL.knife, () => {
       const g = new THREE.Group();
       const blade = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.2, 0.7), matBlade);
@@ -705,7 +796,10 @@ export function buildFarm(scene, textures) {
         slot.mesh.visible = true;
         slot.mesh.position.set(e.lane, e.y || 0, -e.z);
         if (e.kind === 'corn') {
-          slot.mesh.rotation.y = world.time * 1.5 + e.z;
+          // Face stays toward the chase camera (+Z): gentle sway instead
+          // of the old full spin (a spinning face would show its back
+          // half the time). Bobbing kept.
+          slot.mesh.rotation.y = Math.sin(world.time * 1.2 + e.z) * 0.35;
           slot.mesh.position.y = 1.0 + Math.sin(world.time * 2 + e.z) * 0.15;
         } else if (e.kind === 'knife') {
           slot.mesh.position.y = 3.4;

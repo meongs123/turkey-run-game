@@ -38,7 +38,7 @@ export const FARMER = {
 
 export const SCORE = {
   perMetre: 10,
-  corn: 25,
+  corn: 75, // turkey-face bonus pickup (was 25 for corn)
   nearMiss: 50,
   stageBonus: [0, 100, 200],
   escapeBonus: 500,

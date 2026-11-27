@@ -1,6 +1,8 @@
 // Gobble Run — HUD and screens. Plain DOM over the canvas: sharp text at
 // any size, untouched by the 3D post chain. All updates are text writes
 // and class toggles, never layout rebuilds.
+import { SCORE } from './config.js';
+
 export function createHud() {
   const el = (id) => document.getElementById(id);
   const scoreEl = el('hud-score');
@@ -50,7 +52,7 @@ export function createHud() {
       : 'Sunday dinner… Farmer Hodge finally got his turkey.';
     endScore.textContent = `SCORE ${Math.floor(world.score)}  ·  BEST ${world.best}`;
     const seconds = Math.floor(world.time);
-    endStats.textContent = `Distance ${Math.floor(world.distance)} m  ·  Corn ${world.corn}  ·  Near misses ${world.nearMiss}  ·  Time ${seconds}s`;
+    endStats.textContent = `Distance ${Math.floor(world.distance)} m  ·  Bonus 🦃 ${world.corn} × ${SCORE.corn} = ${world.corn * SCORE.corn}  ·  Near misses ${world.nearMiss}  ·  Time ${seconds}s`;
   }
 
   function banner(text) {

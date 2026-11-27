@@ -3,7 +3,7 @@
 // `?shot=<name>&seed=7` stages a deterministic screenshot and sets
 // window.__shotReady after two frames.
 import * as THREE from 'three';
-import { STEP, MAX_FRAME, TRACK_LENGTH } from './config.js';
+import { STEP, MAX_FRAME, TRACK_LENGTH, SCORE } from './config.js';
 import { World, STATE_TITLE, STATE_PLAY, STATE_PAUSE, STATE_END, EVENT_HIT, EVENT_CORN, EVENT_NEAR_MISS, EVENT_STAGE, EVENT_ESCAPED, EVENT_OVER, EVENT_OVEN_WARN, EVENT_OVEN_HOT } from './world.js';
 import { createInput } from './input.js';
 import { makeTextures } from './textures.js';
@@ -97,6 +97,10 @@ function applyEvents(events) {
   if (events & EVENT_CORN) {
     audio.pickup();
     particles.burst(world.player.lane, 1.2, -world.distance, 0xf2c230, 8, 2, 2);
+    // Floating pickup feedback via the existing single-slot toast
+    // (priority 0, so an oven warn still overrides it, and a same-step
+    // near-miss toast — applied after this one — still wins the slot).
+    hud.toast(`+${SCORE.corn} BONUS`);
   }
   if (events & EVENT_NEAR_MISS) {
     hud.toast(world.stage === 2 ? 'CLOSE! +100' : 'CLOSE! +50');
