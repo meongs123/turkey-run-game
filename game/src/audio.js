@@ -95,6 +95,20 @@ export class ProceduralAudio {
     this._noise(0.2, 'lowpass', 900, 200, 0.12);
   }
 
+  ovenWarn() {
+    // Rising heat hiss: a climbing tone under filtered noise, 0.5 s,
+    // with a second blip a fifth up so it reads as a warning, not a drone.
+    this._tone('sawtooth', 180, 520, 0.5, 0.12);
+    this._tone('sawtooth', 270, 780, 0.4, 0.08, 0.15);
+    this._noise(0.5, 'bandpass', 900, 2400, 0.1);
+  }
+
+  ovenBlast() {
+    // Whoomph: a low thump plus a burst of hot noise.
+    this._tone('sine', 140, 45, 0.4, 0.4);
+    this._noise(0.5, 'bandpass', 1600, 200, 0.3);
+  }
+
   hit() {
     this._tone('sine', 120, 40, 0.25, 0.4);
     this._noise(0.15, 'lowpass', 700, 150, 0.3);

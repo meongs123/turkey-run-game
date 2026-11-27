@@ -45,13 +45,22 @@ function autopilot(world, horizon, greedy) {
     }
   }
   // Jump when a low obstacle is right ahead and we are on its lane.
+  // Never for an oven: the flames are 1.5 m high and a jump apex is
+  // ~1.3 m, so jumping into one still burns — steer or dash instead.
+  // (timeToHit above already treats an oven as a solid obstacle, so the
+  // steering choice routes around it.)
   let jump = false;
   for (const e of world.entities) {
-    if (!e.active || e.kind === 'corn' || e.kind === 'knife') continue;
+    if (!e.active || e.kind === 'corn' || e.kind === 'knife' || e.kind === 'oven') continue;
     const dz = e.z - world.distance;
     if (dz > 0 && dz < 7 && Math.abs(e.lane - p.lane) < 1.0 && p.y === 0) jump = true;
   }
-  const dash = greedy && world.gap < 9 && p.dashCd <= 0;
+  // No greedy dash into a warning or burning oven: the dash invulnerability
+  // (0.35 s) is shorter than the burn (0.8 s).
+  const ovenNear = world.entities.some((e) => e.active && e.kind === 'oven'
+    && (e.ovenPhase === 'warn' || e.ovenPhase === 'hot')
+    && e.z - world.distance < 20 && Math.abs(e.lane - p.lane) < 1.3);
+  const dash = greedy && world.gap < 9 && p.dashCd <= 0 && !ovenNear;
   return { steer: best, jump, dash };
 }
 
@@ -85,8 +94,14 @@ export function stageShot(name, world) {
     // guard so a bad-luck run still stages in the kitchen.
     if (world.distance < 720) world.distance = 740;
     world.stage = stageAt(world.distance);
+    // Stage the knife in a lane that is not already an oven blast: the
+    // shot is about the blade, and a flame on the same lane would hide it.
+    let knifeLane = world.player.lane;
+    const ovenNear = world.entities.some((e) => e.active && e.kind === 'oven'
+      && Math.abs(e.z - (world.distance + 6)) < 12 && Math.abs(e.lane - knifeLane) < 1.3);
+    if (ovenNear) knifeLane = knifeLane > 0 ? -2.6 : 2.6;
     world.entities.push({
-      kind: 'knife', z: world.distance + 6, lane: world.player.lane, active: true, passed: false, y: 0, phase: 1.2,
+      kind: 'knife', z: world.distance + 6, lane: knifeLane, active: true, passed: false, y: 0, phase: 1.2,
     });
     world.entities.push({
       kind: 'corn', z: world.distance + 9, lane: world.player.lane, active: true, passed: false, y: 0, phase: 0,

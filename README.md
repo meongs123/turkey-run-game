@@ -9,11 +9,17 @@ Entry for the [make.fun](https://make.fun/bounty/turkey-run-game-01?utm_source=g
 Pip the turkey is on the run from Farmer Hodge on Thanksgiving morning.
 Dodge fences, hay bales, pumpkins and crates, slip past the swinging
 carving knives in the kitchen, hide in the haystacks to lose the farmer —
-and reach Maplewood Edge, 1000 m away, before dinner. 3 stages (Farmyard →
-Barn → Kitchen), 3 feather-lives, dash with stamina, corn +25, near miss
-+50 (×2 in the Kitchen), escape bonus +500. Farmer Hodge chases in three
-states: chase, search, and corner — when the gap closes under 6 m he
-sprints and the screen edge burns red.
+and reach Maplewood Edge, 1000 m away, before dinner. The Farmyard is a
+proper ranch now (red barn, silo, turning windmill, water trough, paddock
+fences, pumpkin patch, chickens and cows), the Barn is stacked with crates
+and barrels, and the Kitchen floor is chequered tile. In the Kitchen the
+oven is a real hazard: it warns with a glowing blast pad, flaring doors,
+a HUD callout and a rising hiss a full second before it fires down one
+lane — change lanes or dash clear, and never while a knife is swinging.
+3 stages (Farmyard → Barn → Kitchen), 3 feather-lives, dash with stamina,
+corn +25, near miss +50 (×2 in the Kitchen), escape bonus +500. Farmer
+Hodge chases in three states: chase, search, and corner — when the gap
+closes under 6 m he sprints and the screen edge burns red.
 
 ## How to play
 
@@ -43,7 +49,10 @@ canvas paintings, audio is WebAudio synthesis, the world is seeded so every
 `?shot=` preset reproduces the same frame. Fixed timestep 1/60 s with render
 interpolation, damped camera (1-exp(-dt*6)), FOV kick on dash, decaying
 trauma shake, object pooling, InstancedMesh dressing, and small bounded
-per-frame allocations (measured ~1 ms/render on SwiftShader). Hand-rolled post chain: HalfFloat render target → half-res bloom
+per-frame allocations (measured ~0.5 ms/render on SwiftShader, per-render
+cost with gl.finish flush). Spawns guarantee at least one free lane at every
+distance (obstacles, knives and the oven all check the same free-lane
+helper), and the oven never fires while a knife is swinging. Hand-rolled post chain: HalfFloat render target → half-res bloom
 (threshold 0.75, strength 0.55) → grade pass (ACES approx + sRGB + vignette +
 radial chromatic aberration + grain) → FXAA. Quality presets Low / Medium /
 High with auto-detect and auto-degrade.

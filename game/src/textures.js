@@ -124,6 +124,51 @@ function brickTexture() {
   }, 83);
 }
 
+function dirtTexture() {
+  return paintCanvas(256, (ctx, size, rng) => {
+    ctx.fillStyle = '#8a6a42';
+    ctx.fillRect(0, 0, size, size);
+    for (let i = 0; i < 1800; i += 1) {
+      const g = 90 + Math.floor(rng.next() * 50);
+      ctx.fillStyle = `rgb(${g + 30},${g},${Math.floor(g * 0.55)})`;
+      ctx.fillRect(rng.next() * size, rng.next() * size, 2 + rng.next() * 3, 2 + rng.next() * 3);
+    }
+    for (let i = 0; i < 14; i += 1) {
+      ctx.fillStyle = 'rgba(60,40,20,0.20)';
+      ctx.beginPath();
+      ctx.arc(rng.next() * size, rng.next() * size, 8 + rng.next() * 22, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (let i = 0; i < 60; i += 1) {
+      // Pebbles: pale dots that read as texture at a distance.
+      ctx.fillStyle = rng.chance(0.5) ? 'rgba(220,200,160,0.7)' : 'rgba(90,70,45,0.7)';
+      ctx.beginPath();
+      ctx.arc(rng.next() * size, rng.next() * size, 1.5 + rng.next() * 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Worn wheel ruts down the middle of the track.
+    ctx.fillStyle = 'rgba(70,48,24,0.35)';
+    ctx.fillRect(size * 0.2, 0, 10, size);
+    ctx.fillRect(size * 0.76, 0, 10, size);
+  }, 97);
+}
+
+function tileTexture() {
+  return paintCanvas(256, (ctx, size) => {
+    const cell = 32;
+    for (let y = 0; y < size; y += cell) {
+      for (let x = 0; x < size; x += cell) {
+        const cream = ((x + y) / cell) % 2 === 0;
+        ctx.fillStyle = cream ? '#e8dcc0' : '#a34a2e';
+        ctx.fillRect(x, y, cell, cell);
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.fillRect(x, y, cell, 2);
+        ctx.fillRect(x, y, 2, cell);
+      }
+    }
+  }, 113);
+}
+
 function signTexture(text) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
@@ -152,6 +197,8 @@ export function makeTextures() {
     feather: featherTexture(),
     plaid: plaidTexture(),
     brick: brickTexture(),
+    dirt: dirtTexture(),
+    tile: tileTexture(),
     sign: signTexture('MAPLEWOOD EDGE'),
   };
 }

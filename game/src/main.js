@@ -4,7 +4,7 @@
 // window.__shotReady after two frames.
 import * as THREE from 'three';
 import { STEP, MAX_FRAME, TRACK_LENGTH } from './config.js';
-import { World, STATE_TITLE, STATE_PLAY, STATE_PAUSE, STATE_END, EVENT_HIT, EVENT_CORN, EVENT_NEAR_MISS, EVENT_STAGE, EVENT_ESCAPED, EVENT_OVER } from './world.js';
+import { World, STATE_TITLE, STATE_PLAY, STATE_PAUSE, STATE_END, EVENT_HIT, EVENT_CORN, EVENT_NEAR_MISS, EVENT_STAGE, EVENT_ESCAPED, EVENT_OVER, EVENT_OVEN_WARN, EVENT_OVEN_HOT } from './world.js';
 import { createInput } from './input.js';
 import { makeTextures } from './textures.js';
 import { ProceduralAudio } from './audio.js';
@@ -106,6 +106,19 @@ function applyEvents(events) {
     const names = ['THE FARMYARD', 'THE BARN', 'THE KITCHEN — mind the oven!'];
     hud.banner(names[world.stage]);
     audio.sting();
+  }
+  if (events & EVENT_OVEN_WARN) {
+    audio.ovenWarn();
+    hud.toast('OVEN BLAST — MOVE!');
+  }
+  if (events & EVENT_OVEN_HOT) {
+    audio.ovenBlast();
+    rig.addTrauma(0.3);
+    // Burst at the blast itself, not at Pip — he should have moved.
+    const oven = world.entities.find((e) => e.active && e.kind === 'oven' && e.ovenPhase === 'hot');
+    const bx = oven ? oven.lane : world.player.lane;
+    const bz = oven ? oven.z : world.distance;
+    particles.burst(bx, 1.5, -bz, 0xff7a1e, 30, 4, 4);
   }
   if (events & EVENT_ESCAPED) {
     audio.fanfare();

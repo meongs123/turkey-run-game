@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { makeRng } from './rng.js';
 
-const POOL = { fence: 8, hay: 6, pumpkin: 6, crate: 6, corn: 24, knife: 4 };
+const POOL = { fence: 10, hay: 8, pumpkin: 8, crate: 8, corn: 32, knife: 6, oven: 2 };
 
 function skyMaterial() {
   return new THREE.ShaderMaterial({
@@ -60,6 +60,27 @@ export function buildFarm(scene, textures) {
   ground.receiveShadow = true;
   scene.add(ground);
 
+  // Worn dirt track down the middle, and a chequered kitchen floor where
+  // the farmyard ends (700 m) — one draw each, both static.
+  const path = new THREE.Mesh(
+    new THREE.PlaneGeometry(10, 1150),
+    new THREE.MeshStandardMaterial({ map: textures.dirt, roughness: 1 }),
+  );
+  path.material.map.repeat.set(2, 150);
+  path.rotation.x = -Math.PI / 2;
+  path.position.set(0, 0.02, -540);
+  path.receiveShadow = true;
+  scene.add(path);
+  const kitchenFloor = new THREE.Mesh(
+    new THREE.PlaneGeometry(12, 300),
+    new THREE.MeshStandardMaterial({ map: textures.tile, roughness: 0.85 }),
+  );
+  kitchenFloor.material.map.repeat.set(3, 75);
+  kitchenFloor.rotation.x = -Math.PI / 2;
+  kitchenFloor.position.set(0, 0.03, -850);
+  kitchenFloor.receiveShadow = true;
+  scene.add(kitchenFloor);
+
   const dummy = new THREE.Object3D();
 
   function instanced(geometry, material, count, place) {
@@ -102,20 +123,21 @@ export function buildFarm(scene, textures) {
     const z = -((i * 53) % 1000) - 10;
     return [x, z];
   }
-  instanced(new THREE.CylinderGeometry(0.25, 0.4, 3.5, 8), trunkMat, 70, (d, i) => {
+  instanced(new THREE.CylinderGeometry(0.25, 0.4, 3.5, 8), trunkMat, 90, (d, i) => {
     const [x, z] = treeSpot(i);
     d.position.set(x, 1.75, z);
     d.rotation.set(0, 0, 0);
+    d.scale.set(1, 1, 1);
   });
-  instanced(new THREE.SphereGeometry(2.2, 10, 8), leafMat, 40, (d, i) => {
+  instanced(new THREE.SphereGeometry(2.2, 10, 8), leafMat, 50, (d, i) => {
     const [x, z] = treeSpot(i);
     d.position.set(x, 4.6, z);
     d.rotation.set(0, 0, 0);
     const s = 0.8 + ((i * 13) % 10) / 14;
     d.scale.set(s, s * 0.8, s);
   });
-  instanced(new THREE.SphereGeometry(2.0, 10, 8), leafMat2, 30, (d, i) => {
-    const [x, z] = treeSpot(i + 40);
+  instanced(new THREE.SphereGeometry(2.0, 10, 8), leafMat2, 40, (d, i) => {
+    const [x, z] = treeSpot(i + 50);
     d.position.set(x, 4.2, z);
     d.rotation.set(0, 0, 0);
     const s = 0.7 + ((i * 17) % 10) / 16;
@@ -123,10 +145,150 @@ export function buildFarm(scene, textures) {
   });
 
   const hayMat = new THREE.MeshStandardMaterial({ map: textures.straw, roughness: 1 });
-  instanced(new THREE.ConeGeometry(1.1, 1.6, 10), hayMat, 24, (d, i) => {
+  instanced(new THREE.ConeGeometry(1.1, 1.6, 10), hayMat, 40, (d, i) => {
     const side = i % 2 === 0 ? -1 : 1;
     d.position.set(side * (6.5 + rng.next() * 4), 0.8, -rng.next() * 900);
     d.rotation.set(0, rng.next() * Math.PI, 0);
+    d.scale.set(1, 1, 1);
+  });
+
+  // ---- The ranch (farmyard, 0–300 m): red barn, silo, windmill, water
+  // trough, paddock fences, pumpkin patch, chickens and cows. All static
+  // except the windmill blades; the animals are InstancedMesh, so the
+  // whole yard costs a handful of draw calls. `building` is hoisted, so
+  // the barn can be placed here even though it is defined just below.
+  building(-13, -95, 12, 6.5, 8, 0x9a2e22, 0x5d2a1a, [[-3, 3.5], [3, 3.5]]);
+  const silo = new THREE.Group();
+  const siloBody = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.7, 1.7, 7, 14),
+    new THREE.MeshStandardMaterial({ color: 0xb8b0a0, roughness: 0.6, metalness: 0.3 }),
+  );
+  siloBody.position.y = 3.5;
+  siloBody.castShadow = true;
+  silo.add(siloBody);
+  const siloCap = new THREE.Mesh(
+    new THREE.ConeGeometry(1.9, 1.6, 14),
+    new THREE.MeshStandardMaterial({ color: 0x8a3b2a, roughness: 0.8 }),
+  );
+  siloCap.position.y = 7.8;
+  silo.add(siloCap);
+  silo.position.set(-17.5, 0, -128);
+  silo.matrixAutoUpdate = false;
+  silo.updateMatrix();
+  scene.add(silo);
+  // Windmill on the right; its two crossed blades turn in update().
+  const mill = new THREE.Group();
+  const millTower = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.9, 1.5, 9, 10),
+    new THREE.MeshStandardMaterial({ color: 0xd8cbb0, roughness: 0.9 }),
+  );
+  millTower.position.y = 4.5;
+  millTower.castShadow = true;
+  mill.add(millTower);
+  const millCap = new THREE.Mesh(
+    new THREE.ConeGeometry(1.2, 1.4, 10),
+    new THREE.MeshStandardMaterial({ color: 0x8a3b2a, roughness: 0.9 }),
+  );
+  millCap.position.y = 9.6;
+  mill.add(millCap);
+  const millBlades = new THREE.Group();
+  const bladeMat = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.9 });
+  millBlades.add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 7.5, 0.12), bladeMat));
+  millBlades.add(new THREE.Mesh(new THREE.BoxGeometry(7.5, 0.5, 0.12), bladeMat));
+  millBlades.add(new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), bladeMat));
+  millBlades.position.set(0, 8.2, 1.35);
+  mill.add(millBlades);
+  mill.position.set(15, 0, -190);
+  scene.add(mill);
+  // Water trough on the left, wood rim with a blue water plane.
+  const trough = new THREE.Group();
+  const troughBox = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.7, 1.1), woodMat);
+  troughBox.position.y = 0.35;
+  troughBox.castShadow = true;
+  trough.add(troughBox);
+  const troughWater = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.2, 0.9),
+    new THREE.MeshStandardMaterial({ color: 0x4a90c2, roughness: 0.2, metalness: 0.1 }),
+  );
+  troughWater.rotation.x = -Math.PI / 2;
+  troughWater.position.y = 0.62;
+  trough.add(troughWater);
+  trough.position.set(-7.5, 0, -60);
+  scene.add(trough);
+  // Paddock pen on the right, x 8–18, z -60..-100: posts + one rail high.
+  instanced(new THREE.BoxGeometry(0.14, 1.1, 0.14), woodMat, 36, (d, i) => {
+    const edge = Math.floor(i / 9);
+    const k = i % 9;
+    if (edge === 0) d.position.set(8 + k * 1.25, 0.55, -60);
+    else if (edge === 1) d.position.set(8 + k * 1.25, 0.55, -100);
+    else if (edge === 2) d.position.set(8, 0.55, -60 - k * 5);
+    else d.position.set(18, 0.55, -60 - k * 5);
+    d.rotation.set(0, 0, 0);
+    d.scale.set(1, 1, 1);
+  });
+  instanced(new THREE.BoxGeometry(0.08, 0.12, 4), woodMat, 26, (d, i) => {
+    if (i < 3) {
+      d.position.set(9.5 + i * 3.4, 0.75, -60);
+      d.rotation.set(0, Math.PI / 2, 0);
+    } else if (i < 6) {
+      d.position.set(9.5 + (i - 3) * 3.4, 0.75, -100);
+      d.rotation.set(0, Math.PI / 2, 0);
+    } else if (i < 16) {
+      d.position.set(8, 0.75, -62 - (i - 6) * 4);
+      d.rotation.set(0, 0, 0);
+    } else {
+      d.position.set(18, 0.75, -62 - (i - 16) * 4);
+      d.rotation.set(0, 0, 0);
+    }
+    d.scale.set(1, 1, 1);
+  });
+  // Pumpkin patch, farmyard only.
+  const patchMat = new THREE.MeshStandardMaterial({ color: 0xe8721e, roughness: 0.8 });
+  instanced(new THREE.SphereGeometry(0.7, 12, 10), patchMat, 24, (d, i) => {
+    const side = i % 2 === 0 ? -1 : 1;
+    const x = side * (6.5 + ((i * 29) % 70) / 10);
+    const z = -10 - ((i * 47) % 280);
+    d.position.set(x, 0.55, z);
+    const s = 0.8 + ((i * 13) % 10) / 20;
+    d.scale.set(s, s * 0.8, s);
+    d.rotation.set(0, 0, 0);
+  });
+  // Chickens: white bodies + heads, pecking around the farmyard.
+  const chickMat = new THREE.MeshStandardMaterial({ color: 0xf2ead8, roughness: 0.9 });
+  function chickSpot(i) {
+    const side = i % 2 === 0 ? -1 : 1;
+    return [side * (6 + ((i * 31) % 60) / 10), -15 - ((i * 43) % 260)];
+  }
+  instanced(new THREE.SphereGeometry(0.24, 10, 8), chickMat, 8, (d, i) => {
+    const [x, z] = chickSpot(i);
+    d.position.set(x, 0.24, z);
+    d.scale.set(1, 0.9, 1.25);
+    d.rotation.set(0, 0, 0);
+  });
+  instanced(new THREE.SphereGeometry(0.13, 8, 8), chickMat, 8, (d, i) => {
+    const [x, z] = chickSpot(i);
+    d.position.set(x, 0.45, z + 0.24);
+    d.scale.set(1, 1, 1);
+    d.rotation.set(0, 0, 0);
+  });
+  // Cows: pale bodies, dark heads, standing side-on to the track.
+  const cowMat = new THREE.MeshStandardMaterial({ color: 0xe8e0d0, roughness: 0.95 });
+  const cowHeadMat = new THREE.MeshStandardMaterial({ color: 0x2e2e2e, roughness: 0.95 });
+  function cowSpot(i) {
+    const side = i % 2 === 0 ? -1 : 1;
+    return [side * (8 + ((i * 23) % 50) / 10), -40 - ((i * 61) % 220)];
+  }
+  instanced(new THREE.BoxGeometry(1.7, 0.95, 0.8), cowMat, 4, (d, i) => {
+    const [x, z] = cowSpot(i);
+    d.position.set(x, 0.75, z);
+    d.scale.set(1, 1, 1);
+    d.rotation.set(0, 0, 0);
+  });
+  instanced(new THREE.BoxGeometry(0.55, 0.55, 0.6), cowHeadMat, 4, (d, i) => {
+    const [x, z] = cowSpot(i);
+    d.position.set(x + 0.95, 0.9, z);
+    d.scale.set(1, 1, 1);
+    d.rotation.set(0, 0, 0);
   });
 
   // Buildings: farmhouse near the start, barn mid-track, oven in the kitchen.
@@ -178,6 +340,33 @@ export function buildFarm(scene, textures) {
     scene.add(oven);
   });
 
+  // Barn-stage clutter: two-high crate stacks and barrels along both
+  // sides of the track (300–700 m), and kitchen counters (700–1000 m).
+  // Instanced, so the whole lot is three draw calls.
+  instanced(new THREE.BoxGeometry(1.1, 1.1, 1.1), woodMat, 30, (d, i) => {
+    const s = Math.floor(i / 2);
+    const side = s % 2 === 0 ? -1 : 1;
+    const x = side * (6.5 + ((s * 17) % 30) / 10);
+    const z = -310 - ((s * 37) % 380);
+    d.position.set(x, 0.55 + (i % 2) * 1.1, z);
+    d.scale.set(1, 1, 1);
+    d.rotation.set(0, ((s * 19) % 10) / 10 * 0.6, 0);
+  });
+  const barrelMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.9 });
+  instanced(new THREE.CylinderGeometry(0.55, 0.55, 1.1, 12), barrelMat, 20, (d, i) => {
+    const side = i % 2 === 0 ? -1 : 1;
+    d.position.set(side * (6.5 + ((i * 23) % 40) / 10), 0.55, -320 - ((i * 53) % 370));
+    d.scale.set(1, 1, 1);
+    d.rotation.set(0, 0, 0);
+  });
+  const counterMat = new THREE.MeshStandardMaterial({ color: 0x4a3423, roughness: 0.85 });
+  instanced(new THREE.BoxGeometry(2.4, 1.0, 1.0), counterMat, 16, (d, i) => {
+    const side = i % 2 === 0 ? -1 : 1;
+    d.position.set(side * 6.8, 0.5, -710 - ((i * 41) % 280));
+    d.scale.set(1, 1, 1);
+    d.rotation.set(0, 0, 0);
+  });
+
   // Maplewood Edge gate at the finish.
   const gate = new THREE.Group();
   const gateMat = new THREE.MeshStandardMaterial({ map: textures.wood, roughness: 0.9 });
@@ -205,6 +394,8 @@ export function buildFarm(scene, textures) {
   const matCorn = new THREE.MeshStandardMaterial({ color: 0xf2c230, roughness: 0.6 });
   const matBlade = new THREE.MeshStandardMaterial({ color: 0xd8dde2, roughness: 0.25, metalness: 0.9 });
   const matHandle = new THREE.MeshStandardMaterial({ color: 0x4a2c12, roughness: 0.9 });
+  const matFlame = new THREE.MeshBasicMaterial({ color: 0xff8a1e });
+  const matFlameCore = new THREE.MeshBasicMaterial({ color: 0xffd23e });
 
   function makePool(kind, count, build) {
     const list = [];
@@ -237,6 +428,32 @@ export function buildFarm(scene, textures) {
       g.add(handle);
       return g;
     }),
+    // Oven blast: a ground marker (the telegraph) plus two flame cones.
+    // Basic materials, so the blast reads as glowing through the bloom
+    // pass without a second point light. Marker material is cloned per
+    // slot so the warning pulse is independent.
+    oven: makePool('oven', POOL.oven, () => {
+      const g = new THREE.Group();
+      const marker = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.6, 3.4),
+        new THREE.MeshBasicMaterial({ color: 0xff6a1e, transparent: true, opacity: 0.16 }),
+      );
+      marker.rotation.x = -Math.PI / 2;
+      marker.position.y = 0.06;
+      g.add(marker);
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(1.0, 2.2, 10), matFlame);
+      flame.position.y = 1.1;
+      flame.visible = false;
+      g.add(flame);
+      const core = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.5, 8), matFlameCore);
+      core.position.y = 0.85;
+      core.visible = false;
+      g.add(core);
+      g.userData.marker = marker;
+      g.userData.flame = flame;
+      g.userData.core = core;
+      return g;
+    }),
   };
 
   let lastShadowZ = -100;
@@ -246,7 +463,8 @@ export function buildFarm(scene, textures) {
     ovenLight,
     // Position pooled meshes from the world's live entity list.
     sync(world) {
-      const byKind = { fence: 0, hay: 0, pumpkin: 0, crate: 0, corn: 0, knife: 0 };
+      const byKind = { fence: 0, hay: 0, pumpkin: 0, crate: 0, corn: 0, knife: 0, oven: 0 };
+      this._ovenWarn = false;
       for (const e of world.entities) {
         if (!e.active) continue;
         const pool = pools[e.kind];
@@ -274,6 +492,37 @@ export function buildFarm(scene, textures) {
           slot.mesh.position.y = 0.6;
         } else if (e.kind === 'fence') {
           slot.mesh.position.y = 0.5;
+        } else if (e.kind === 'oven') {
+          // Oven blast telegraph: idle shows a faint pad on the track,
+          // warn pulses it (the door flare + HUD + sound fire with it),
+          // hot shows the flames. Done hides the whole group.
+          slot.mesh.position.y = 0;
+          const marker = slot.mesh.userData.marker;
+          const flame = slot.mesh.userData.flame;
+          const core = slot.mesh.userData.core;
+          if (e.ovenPhase === 'warn') {
+            marker.visible = true;
+            marker.material.opacity = 0.35 + 0.3 * Math.sin(world.time * 10);
+            flame.visible = false;
+            core.visible = false;
+            this._ovenWarn = true;
+          } else if (e.ovenPhase === 'hot') {
+            marker.visible = true;
+            marker.material.opacity = 0.85;
+            flame.visible = true;
+            core.visible = true;
+            const flick = 1 + 0.12 * Math.sin(world.time * 31);
+            flame.scale.set(flick, 1 + 0.2 * Math.sin(world.time * 27), flick);
+            core.scale.set(1, 1 + 0.25 * Math.sin(world.time * 33), 1);
+            this._ovenWarn = true;
+          } else if (e.ovenPhase === 'idle') {
+            marker.visible = true;
+            marker.material.opacity = 0.16;
+            flame.visible = false;
+            core.visible = false;
+          } else {
+            slot.mesh.visible = false;
+          }
         }
       }
       for (const kind of Object.keys(pools)) {
@@ -288,7 +537,12 @@ export function buildFarm(scene, textures) {
       sun.position.set(-30, 26, -playerZ - 20);
       sun.target.position.set(0, 0, -playerZ);
       sun.target.updateMatrixWorld();
-      ovenLight.intensity = 24 + Math.sin(time * 3) * 6;
+      millBlades.rotation.z += dt * 0.9;
+      // While an oven warns or burns, its static doors flare brighter and
+      // the kitchen light runs hotter — the same telegraph, seen from afar.
+      const flare = this._ovenWarn ? 1 : 0;
+      ovenLight.intensity = (flare ? 48 : 24) + Math.sin(time * 3) * 6;
+      ovenDoorMat.color.setHex(flare ? 0xffc21e : 0xff7a1e);
       if (playerZ - lastShadowZ > 4) {
         lastShadowZ = playerZ;
         return true;

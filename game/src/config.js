@@ -45,12 +45,35 @@ export const SCORE = {
 };
 
 export const SPAWN = {
-  startInterval: 1.6,
-  endInterval: 0.7,
+  startInterval: 1.35,
+  endInterval: 0.55,
   knifeFrom: 250,
   ovenFrom: 700,
   ahead: 70,
   behind: 12,
+  // Second obstacle at the same z: 0.35 — always in a different lane, and
+  // world.js refuses any spawn that would leave zero free lanes at that z
+  // (obstacle, knife and oven all check the same _freeLaneAt helper), so
+  // at least one of the three lanes is open at every distance.
+  doubleChance: 0.35,
+  cornChance: 0.85,
+  cornMax: 4,
+};
+
+// Kitchen oven hazard: one lane at a time, telegraphed before it fires.
+// warnRange is the distance at which the warning starts (≈1.2 s of travel
+// at kitchen speed, never below the 0.8 s fairness floor); warnTime is the
+// glow + HUD + audio telegraph, activeTime the burning window. The blast
+// covers one lane only and never overlaps a knife spawn (see world.js).
+export const OVEN = {
+  warnTime: 1.0,
+  activeTime: 0.8,
+  minGap: 7,
+  maxGap: 10,
+  ahead: 48,
+  warnRange: 16,
+  halfWidth: 1.15,
+  height: 1.5,
 };
 
 export const CAMERA = {
