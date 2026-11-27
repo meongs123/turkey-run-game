@@ -82,7 +82,7 @@ export function buildFarmer(textures) {
   });
 
   // ---- Head: round, with ears, nose, eyes, brows, mouth, moustache
-  // and a short chin beard. Front faces +Z, as before (beard/net side).
+  // and a short chin beard. Front faces +Z, as before.
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.29, 24, 18), skin);
   head.position.y = 2.04;
   head.scale.set(1, 1.06, 0.96);
@@ -158,14 +158,19 @@ export function buildFarmer(textures) {
   const armR = makeArm(1);
   group.add(armR);
 
-  // The net: a torus rim plus a translucent mesh plane, held up front.
-  const netRim = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.05, 8, 20), new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.9 }));
-  netRim.position.set(0.35, 1.5, 0.55);
+  // The net: a torus rim plus a translucent mesh plane, carried at the
+  // farmer's side (right hand) and tilted edge-on to the front, so the
+  // torso — denim bib, straps and brass buttons — stays fully visible
+  // from the front/title screen while the net still reads as a catch net.
+  const netRim = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.04, 8, 20), new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.9 }));
+  netRim.position.set(0.78, 1.22, 0.08);
+  netRim.rotation.set(0.12, 1.25, 0.30);
   group.add(netRim);
-  const netMesh = new THREE.Mesh(new THREE.CircleGeometry(0.48, 20), new THREE.MeshBasicMaterial({
+  const netMesh = new THREE.Mesh(new THREE.CircleGeometry(0.38, 20), new THREE.MeshBasicMaterial({
     color: 0xdddddd, transparent: true, opacity: 0.25, side: THREE.DoubleSide,
   }));
   netMesh.position.copy(netRim.position);
+  netMesh.rotation.copy(netRim.rotation);
   group.add(netMesh);
 
   // ---- Legs: denim capsules; each ends in a brown boot (rounded box,
