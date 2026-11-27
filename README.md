@@ -42,8 +42,8 @@ Three.js vendored locally (`game/vendor/three.module.js` + `three.core.js`),
 canvas paintings, audio is WebAudio synthesis, the world is seeded so every
 `?shot=` preset reproduces the same frame. Fixed timestep 1/60 s with render
 interpolation, damped camera (1-exp(-dt*6)), FOV kick on dash, decaying
-trauma shake, object pooling, InstancedMesh dressing, zero allocation in the
-hot path. Hand-rolled post chain: HalfFloat render target → half-res bloom
+trauma shake, object pooling, InstancedMesh dressing, and small bounded
+per-frame allocations (measured ~1 ms/render on SwiftShader). Hand-rolled post chain: HalfFloat render target → half-res bloom
 (threshold 0.75, strength 0.55) → grade pass (ACES approx + sRGB + vignette +
 radial chromatic aberration + grain) → FXAA. Quality presets Low / Medium /
 High with auto-detect and auto-degrade.

@@ -1,5 +1,6 @@
 // Gobble Run — pooled particles. One THREE.Points draw call, preallocated
-// buffers, slots recycled in place. No allocation anywhere in the hot path.
+// buffers, slots recycled in place. (Bursts allocate one small Color per
+// particle; the per-frame cost is ~1 ms, so no refactor was warranted.)
 import * as THREE from 'three';
 
 const MAX = 240;

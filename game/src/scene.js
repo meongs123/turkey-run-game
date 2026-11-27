@@ -261,6 +261,10 @@ export function buildFarm(scene, textures) {
           slot.mesh.position.y = 1.0 + Math.sin(world.time * 2 + e.z) * 0.15;
         } else if (e.kind === 'knife') {
           slot.mesh.position.y = 3.4;
+          // Turn the blade ~0.9 rad so its broad face catches the chase
+          // camera instead of reading edge-on as a thin sliver. Visual
+          // only: knife collision lives in world.js (lane/z) and is untouched.
+          slot.mesh.rotation.y = 0.9;
           slot.mesh.rotation.x = Math.sin(world.time * 2.2 + e.phase) * 0.9;
         } else if (e.kind === 'hay') {
           slot.mesh.position.y = 0.75;

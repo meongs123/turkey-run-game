@@ -34,7 +34,6 @@ export const FARMER = {
   cornBonus: 0.4,
   searchGap: 18,
   cornerGap: 6,
-  cornerBoost: 1.25,
 };
 
 export const SCORE = {

@@ -77,6 +77,7 @@ try {
 let prevLane = 0;
 let prevY = 0;
 let prevDistance = 0;
+let prevFarmerMode = 0;
 let accumulator = 0;
 let lastNow = performance.now();
 let frameTimes = [];
@@ -123,7 +124,11 @@ function syncVisuals(alpha) {
   farmer.group.position.set(lane * 0.6, 0, -dist + world.gap);
   const mode = world.farmerMode === 1 ? FARMER_SEARCH : world.farmerMode === 2 ? FARMER_CORNER : FARMER_CHASE;
   farmer.update(1 / 60, p.speedNorm, mode, world.time);
-  if (world.farmerMode === 2 && Math.floor(world.time * 4) % 2 === 0) audio.sting();
+  // CORNER sting fires once, on entering corner mode — the old
+  // per-frame call while floor(time*4)%2===0 stacked ~6 stings per
+  // sim-second (≈30/s at 60 fps) into a dissonant pile-up.
+  if (world.farmerMode === 2 && prevFarmerMode !== 2) audio.sting();
+  prevFarmerMode = world.farmerMode;
   farm.sync(world);
   rig.update(1 / 60, lane, y, dist, p.steerLean, p.dashT > 0, world.time);
 }
@@ -268,16 +273,27 @@ if (shotName) {
   renderFrame(1);
   renderFrame(1);
   if (staged.screen === 'title') {
-    // Hero framing for the cover: low orbit in front of Pip, farmer far
-    // behind him. Re-render once after placing the camera by hand.
-    // Pip sits left of centre (clear of the START button); Hodge stands
-    // in the lane behind him, net raised. Positions are set on the groups
-    // directly for this one staged frame.
+    // Hero framing for the cover: low orbit in front of Pip. Pip and
+    // Hodge flank the centred text column (Pip far left, Hodge far
+    // right) so neither is covered by the story text or START button.
+    // Positions are set on the groups directly for this one staged
+    // frame; the real title screen is untouched.
     camera.position.set(0, 1.9, 5.2);
     camera.lookAt(0, 1.1, -3);
-    turkey.group.position.set(-1.8, 0, -1.5);
-    farmer.group.position.set(1.8, 0, -9);
+    turkey.group.position.set(-3.4, 0, -0.8);
+    farmer.group.position.set(5.0, 0, -5.0);
     farmer.group.rotation.y = 0;
+    composer.render(scene, camera, world.time, 1 / 60);
+  }
+  if (staged.screen === 'end') {
+    // Victory framing: pull the camera back and up so the MAPLEWOOD EDGE
+    // sign drops below the HUD strip (no more "1000 m" overlap), Pip
+    // stands left of the RUN AGAIN button, and the stage label names the
+    // gate instead of the kitchen. Staged frame only.
+    camera.position.set(0, 5.0, -world.distance + 10);
+    camera.lookAt(0, 2.0, -world.distance - 12);
+    turkey.group.position.set(-3.0, 0, -world.distance);
+    document.getElementById('hud-stage').textContent = 'MAPLEWOOD EDGE';
     composer.render(scene, camera, world.time, 1 / 60);
   }
   window.__shotReady = true;
