@@ -323,6 +323,20 @@ export function buildTurkey(textures) {
   const legR = buildLeg(1, legMat);
   group.add(legR);
 
+  // FACING FIX (user playtest 27 Nov 20:35 WIB): the rig's local front
+  // is +Z — head/beak/toes at +Z, fan tail at -Z — but Pip runs toward
+  // -Z and the chase camera sits on the +Z side, so gameplay showed
+  // Pip's FACE. Flip the whole model 180° about Y inside the rig root:
+  // the chase camera now sees the back + fan tail, head points
+  // down-track (-Z). The rig root itself (position set by main.js, lean
+  // in update()) is untouched, so heading, gait, dash and hide all keep
+  // moving forward. All internal animation is a rigid transform of the
+  // model, so it stays correct relative to the body.
+  const model = new THREE.Group();
+  while (group.children.length > 0) model.add(group.children[0]);
+  model.rotation.y = Math.PI;
+  group.add(model);
+
   const rig = {
     group, body, head, tail, tailFeathers, wingL, wingR, legL, legR,
     // Drive the whole rig from the run clock. `air` is 1 while jumping,
@@ -339,7 +353,7 @@ export function buildTurkey(textures) {
       const spread = 1 + dash * 0.35 + flare * 0.45;
       tail.scale.set(spread, spread, 1);
       tail.rotation.x = -0.15 - dash * 0.2;
-      head.rotation.y = steerLean * 0.5;
+      head.rotation.y = -steerLean * 0.5; // sign flips with the 180° model turn, so the head still turns toward the steering direction on screen
       group.rotation.z = steerLean * 0.12;
     },
   };
