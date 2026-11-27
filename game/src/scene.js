@@ -302,9 +302,15 @@ export function buildFarm(scene, textures) {
     d.rotation.set(0, 0, 0);
   });
   // Cows: pale capsule bodies (same 1.7 m length, 0.9 m height as the old
-  // boxes), dark ellipsoid heads, standing side-on to the track.
+  // boxes), dark ellipsoid heads, standing side-on to the track — now
+  // with legs, hooves, ears, small horns, tails, udders, pink muzzles
+  // and black Holstein patches. Spots, body size and orientation are
+  // unchanged; every extra part is placed off cowSpot(i).
   const cowMat = new THREE.MeshStandardMaterial({ color: 0xe8e0d0, roughness: 0.95 });
   const cowHeadMat = new THREE.MeshStandardMaterial({ color: 0x2e2e2e, roughness: 0.95 });
+  const cowBlackMat = new THREE.MeshStandardMaterial({ color: 0x1e1a18, roughness: 0.95 });
+  const cowPinkMat = new THREE.MeshStandardMaterial({ color: 0xd9a08a, roughness: 0.9 });
+  const hornMat = new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 0.8 });
   function cowSpot(i) {
     const side = i % 2 === 0 ? -1 : 1;
     return [side * (8 + ((i * 23) % 50) / 10), -40 - ((i * 61) % 220)];
@@ -326,6 +332,160 @@ export function buildFarm(scene, textures) {
     d.position.set(x + 0.95, 0.9, z);
     d.scale.set(1, 1, 1);
     d.rotation.set(0, 0, 0);
+  });
+  // Legs: 4 per cow, front pair under the head end (+X), rear pair under
+  // the tail end (-X). Hooves are dark caps at the bottom of each leg.
+  instanced(new THREE.CylinderGeometry(0.09, 0.08, 0.4, 8), cowMat, 16, (d, i) => {
+    const [x, z] = cowSpot(Math.floor(i / 4));
+    const leg = i % 4;
+    d.position.set(x + (leg < 2 ? 0.55 : -0.55), 0.20, z + (leg % 2 === 0 ? 0.22 : -0.22));
+    d.scale.set(1, 1, 1);
+    d.rotation.set(0, 0, 0);
+  });
+  instanced(new THREE.CylinderGeometry(0.10, 0.10, 0.08, 8), cowBlackMat, 16, (d, i) => {
+    const [x, z] = cowSpot(Math.floor(i / 4));
+    const leg = i % 4;
+    d.position.set(x + (leg < 2 ? 0.55 : -0.55), 0.04, z + (leg % 2 === 0 ? 0.22 : -0.22));
+    d.scale.set(1, 1, 1);
+    d.rotation.set(0, 0, 0);
+  });
+  // Ears: flat pale flaps sticking out sideways from the head.
+  instanced(new THREE.SphereGeometry(0.17, 10, 8), cowMat, 8, (d, i) => {
+    const [x, z] = cowSpot(Math.floor(i / 2));
+    const s = i % 2 === 0 ? 1 : -1;
+    d.position.set(x + 0.85, 1.02, z + s * 0.30);
+    d.scale.set(1.1, 0.3, 1.4);
+    d.rotation.set(s * 0.5, 0, 0);
+  });
+  // Horns: small cream cones tilting up and out from the top of the head.
+  instanced(new THREE.ConeGeometry(0.055, 0.24, 8), hornMat, 8, (d, i) => {
+    const [x, z] = cowSpot(Math.floor(i / 2));
+    const s = i % 2 === 0 ? 1 : -1;
+    d.position.set(x + 0.88, 1.20, z + s * 0.14);
+    d.scale.set(1, 1, 1);
+    d.rotation.set(s * 0.5, 0, -0.2);
+  });
+  // Tails: thin pale switch hanging at the rear, dark tuft at the tip.
+  instanced(new THREE.CylinderGeometry(0.035, 0.03, 0.5, 6), cowMat, 4, (d, i) => {
+    const [x, z] = cowSpot(i);
+    d.position.set(x - 0.88, 0.45, z);
+    d.scale.set(1, 1, 1);
+    d.rotation.set(0, 0, 0.15);
+  });
+  instanced(new THREE.SphereGeometry(0.09, 8, 8), cowBlackMat, 4, (d, i) => {
+    const [x, z] = cowSpot(i);
+    d.position.set(x - 0.92, 0.18, z);
+    d.scale.set(1, 1.3, 1);
+    d.rotation.set(0, 0, 0);
+  });
+  // Udder: pink flattened sphere under the belly, rear of centre.
+  instanced(new THREE.SphereGeometry(0.18, 10, 8), cowPinkMat, 4, (d, i) => {
+    const [x, z] = cowSpot(i);
+    d.position.set(x - 0.05, 0.16, z);
+    d.scale.set(1.5, 0.55, 0.9);
+    d.rotation.set(0, 0, 0);
+  });
+  // Muzzle: pink flattened sphere on the front of the dark head, with
+  // two tiny nostrils.
+  instanced(new THREE.SphereGeometry(0.20, 10, 8), cowPinkMat, 4, (d, i) => {
+    const [x, z] = cowSpot(i);
+    d.position.set(x + 1.22, 0.82, z);
+    d.scale.set(0.75, 0.6, 1.05);
+    d.rotation.set(0, 0, 0);
+  });
+  instanced(new THREE.SphereGeometry(0.03, 6, 6), cowBlackMat, 8, (d, i) => {
+    const [x, z] = cowSpot(Math.floor(i / 2));
+    const s = i % 2 === 0 ? 1 : -1;
+    d.position.set(x + 1.36, 0.84, z + s * 0.07);
+    d.scale.set(1, 1, 1);
+    d.rotation.set(0, 0, 0);
+  });
+  // Holstein patches: flattened black spheres hugging one flank each.
+  instanced(new THREE.SphereGeometry(0.30, 10, 8), cowBlackMat, 4, (d, i) => {
+    const [x, z] = cowSpot(i);
+    const s = i % 2 === 0 ? 1 : -1;
+    const dx = i % 2 === 0 ? -0.25 : 0.3;
+    d.position.set(x + dx, 0.62, z + s * 0.38);
+    d.scale.set(1.3, 0.85, 0.3);
+    d.rotation.set(0, 0, 0);
+  });
+
+  // Goats: 3 of them, smaller and slimmer than the cows, grazing at the
+  // roadside in the farmyard (x +/-8-13, z -70/-190/-250 — clear of the
+  // track, the ovens/kitchen, the cows and the chickens). Same instanced
+  // pattern as the cows: capsule body, head with beard, curved horns,
+  // long drooping ears, thin legs, upright tail.
+  // Goat spots (x, z, yaw, headY): A left by the trough, B right
+  // mid-yard, C left near the farmyard's far end, head down grazing.
+  const goatSpots = [
+    { x: -10.5, z: -70, yaw: 0.5, headY: 0.68 },
+    { x: 12.5, z: -190, yaw: -0.6, headY: 0.68 },
+    { x: -11, z: -250, yaw: 0.9, headY: 0.42 },
+  ];
+  const goatMat = new THREE.MeshStandardMaterial({ color: 0xcbb59a, roughness: 0.95 });
+  const goatHeadMat = new THREE.MeshStandardMaterial({ color: 0xb59a78, roughness: 0.95 });
+  const goatBeardMat = new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 1 });
+  function goatLocal(i, lx, ly, lz) {
+    const g = goatSpots[i];
+    const c = Math.cos(g.yaw);
+    const s = Math.sin(g.yaw);
+    return [g.x + lx * c + lz * s, ly, g.z - lx * s + lz * c];
+  }
+  const goatBodyGeo = new THREE.CapsuleGeometry(0.22, 0.5, 4, 10);
+  goatBodyGeo.rotateZ(Math.PI / 2);
+  instanced(goatBodyGeo, goatMat, 3, (d, i) => {
+    const g = goatSpots[i];
+    d.position.set(g.x, 0.45, g.z);
+    d.scale.set(1, 1, 1);
+    d.rotation.set(0, g.yaw, 0);
+  });
+  instanced(new THREE.SphereGeometry(0.17, 12, 10), goatHeadMat, 3, (d, i) => {
+    const [x, y, z] = goatLocal(i, 0.55, goatSpots[i].headY, 0);
+    d.position.set(x, y, z);
+    d.scale.set(1, 0.95, 0.9);
+    d.rotation.set(0, goatSpots[i].yaw, 0);
+  });
+  // Beard: small dark cone under the chin, pointing down.
+  instanced(new THREE.ConeGeometry(0.06, 0.18, 8), goatBeardMat, 3, (d, i) => {
+    const [x, , z] = goatLocal(i, 0.58, 0, 0);
+    d.position.set(x, goatSpots[i].headY - 0.16, z);
+    d.scale.set(1, 1, 1);
+    d.rotation.set(Math.PI, 0, 0);
+  });
+  // Horns: curved cream arcs sweeping back from the top of the head.
+  const goatHornGeo = new THREE.TorusGeometry(0.14, 0.03, 6, 10, Math.PI * 0.9);
+  instanced(goatHornGeo, hornMat, 6, (d, i) => {
+    const gi = Math.floor(i / 2);
+    const s = i % 2 === 0 ? 1 : -1;
+    const [x, , z] = goatLocal(gi, 0.48, 0, s * 0.08);
+    d.position.set(x, goatSpots[gi].headY + 0.14, z);
+    d.scale.set(1, 1, 1);
+    d.rotation.set(s * 0.5, goatSpots[gi].yaw, 0.4);
+  });
+  // Ears: long capsules drooping out and down from the head.
+  instanced(new THREE.CapsuleGeometry(0.05, 0.18, 4, 8), goatHeadMat, 6, (d, i) => {
+    const gi = Math.floor(i / 2);
+    const s = i % 2 === 0 ? 1 : -1;
+    const [x, , z] = goatLocal(gi, 0.48, 0, s * 0.16);
+    d.position.set(x, goatSpots[gi].headY - 0.06, z);
+    d.scale.set(1, 1, 1);
+    d.rotation.set(s * 1.1, goatSpots[gi].yaw, 0.2);
+  });
+  // Thin legs, 4 per goat.
+  instanced(new THREE.CylinderGeometry(0.05, 0.045, 0.42, 6), goatHeadMat, 12, (d, i) => {
+    const gi = Math.floor(i / 4);
+    const leg = i % 4;
+    const [x, , z] = goatLocal(gi, leg < 2 ? 0.30 : -0.30, 0, leg % 2 === 0 ? 0.13 : -0.13);
+    d.position.set(x, 0.21, z);
+    d.scale.set(1, 1, 1);
+    d.rotation.set(0, 0, 0);
+  });
+  // Tail: small cone sticking up at the rear.
+  instanced(new THREE.ConeGeometry(0.06, 0.18, 8), goatMat, 3, (d, i) => {
+    const [x, , z] = goatLocal(i, -0.52, 0, 0);
+    d.position.set(x, 0.68, z);
+    d.scale.set(1, 1, 1);
+    d.rotation.set(0, goatSpots[i].yaw, 0.8);
   });
 
   // Buildings: farmhouse near the start, barn mid-track, oven in the kitchen.
