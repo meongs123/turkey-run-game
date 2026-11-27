@@ -313,7 +313,9 @@ export function buildFarm(scene, textures) {
   cowBodyGeo.rotateZ(Math.PI / 2);
   instanced(cowBodyGeo, cowMat, 4, (d, i) => {
     const [x, z] = cowSpot(i);
-    d.position.set(x, 0.75, z);
+    // Body centre 0.55, not 0.75: capsule radius 0.45 puts the belly
+    // 0.10 m off the ground instead of floating 0.30 m up.
+    d.position.set(x, 0.55, z);
     d.scale.set(1, 1, 1);
     d.rotation.set(0, 0, 0);
   });
@@ -331,7 +333,9 @@ export function buildFarm(scene, textures) {
     const g = new THREE.Group();
     // Walls: beveled rounded box instead of a sharp BoxGeometry — same
     // outer footprint, soft edges. The pyramid roof keeps its shape.
-    const walls = new THREE.Mesh(roundedBoxGeometry(w, h, dpt, 0.3, 0.12), new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.95 }));
+    // Bevel 0.35 (was 0.12, ~1% of an 8–12 m wall and invisible at
+    // gameplay distance); now ~3–4% and the corners catch the light.
+    const walls = new THREE.Mesh(roundedBoxGeometry(w, h, dpt, 0.3, 0.35), new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.95 }));
     walls.position.y = h / 2;
     walls.castShadow = true;
     g.add(walls);
@@ -404,6 +408,17 @@ export function buildFarm(scene, textures) {
     d.position.set(side * (6.5 + ((i * 23) % 40) / 10), 0.55, -320 - ((i * 53) % 370));
     d.scale.set(1, 1, 1);
     d.rotation.set(0, 0, 0);
+  });
+  // Barrel hoops: two dark metal bands per barrel at ±0.35 m, where the
+  // lathe radius is 0.56 — same placement as the barrels, one extra draw
+  // call, ~4.8k tris. The barrels read as bound staves, not plain vases.
+  const hoopMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.5, metalness: 0.6 });
+  instanced(new THREE.TorusGeometry(0.57, 0.03, 5, 12), hoopMat, 40, (d, i) => {
+    const bi = Math.floor(i / 2);
+    const side = bi % 2 === 0 ? -1 : 1;
+    d.position.set(side * (6.5 + ((bi * 23) % 40) / 10), 0.55 + (i % 2 === 0 ? -0.35 : 0.35), -320 - ((bi * 53) % 370));
+    d.scale.set(1, 1, 1);
+    d.rotation.set(Math.PI / 2, 0, 0);
   });
   const counterMat = new THREE.MeshStandardMaterial({ color: 0x4a3423, roughness: 0.85 });
   instanced(roundedBoxGeometry(2.4, 1.0, 1.0, 0.12, 0.08), counterMat, 16, (d, i) => {

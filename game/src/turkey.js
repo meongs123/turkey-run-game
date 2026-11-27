@@ -11,7 +11,7 @@ import * as THREE from 'three';
 const C = {
   bodyBrown: 0x9c6b38,
   wingBrown: 0x8a5630,
-  darkBrown: 0x4a2e14,
+  darkBrown: 0x6b3a1e,
   outline: 0x3a220e,
   orange: 0xe87e1e,
   tan: 0xd9a066,
@@ -33,13 +33,15 @@ function makeTailFeatherTexture() {
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d');
-  // Bands (canvas y=0 is the tip).
+  // Bands (canvas y=0 is the tip). Base band is a readable medium brown
+  // (~70 of 256 px), not the near-black it was — the old #4a2e14 over 104 px
+  // rendered black under the sunset grade.
   ctx.fillStyle = '#e87e1e';
   ctx.fillRect(0, 0, W, 78);
   ctx.fillStyle = '#d9a066';
-  ctx.fillRect(0, 78, W, 74);
-  ctx.fillStyle = '#4a2e14';
-  ctx.fillRect(0, 152, W, H - 152);
+  ctx.fillRect(0, 78, W, 108);
+  ctx.fillStyle = '#6b3a1e';
+  ctx.fillRect(0, 186, W, H - 186);
   // Soft blend between bands.
   const blend1 = ctx.createLinearGradient(0, 66, 0, 90);
   blend1.addColorStop(0, 'rgba(232,126,30,0)');
@@ -47,16 +49,16 @@ function makeTailFeatherTexture() {
   blend1.addColorStop(1, 'rgba(217,160,102,0)');
   ctx.fillStyle = blend1;
   ctx.fillRect(0, 66, W, 24);
-  const blend2 = ctx.createLinearGradient(0, 140, 0, 164);
+  const blend2 = ctx.createLinearGradient(0, 174, 0, 198);
   blend2.addColorStop(0, 'rgba(217,160,102,0)');
-  blend2.addColorStop(0.5, 'rgba(74,46,20,0.55)');
-  blend2.addColorStop(1, 'rgba(74,46,20,0)');
+  blend2.addColorStop(0.5, 'rgba(107,58,30,0.55)');
+  blend2.addColorStop(1, 'rgba(107,58,30,0)');
   ctx.fillStyle = blend2;
-  ctx.fillRect(0, 140, W, 24);
+  ctx.fillRect(0, 174, W, 24);
   // Barb strokes: short diagonal dashes, slightly darker than the band.
   ctx.lineWidth = 2;
   for (let y = 10; y < H - 8; y += 9) {
-    const band = y < 78 ? 'rgba(160,70,10,0.5)' : y < 152 ? 'rgba(150,95,40,0.5)' : 'rgba(20,10,4,0.55)';
+    const band = y < 78 ? 'rgba(160,70,10,0.5)' : y < 186 ? 'rgba(150,95,40,0.5)' : 'rgba(60,32,12,0.55)';
     ctx.strokeStyle = band;
     for (let x = 12; x < W - 12; x += 14) {
       ctx.beginPath();
@@ -135,11 +137,14 @@ function buildWing(sign, wingMat, creamMat) {
   covert.scale.set(0.20, 0.55, 0.7);
   covert.position.set(sign * 0.06, -0.12, -0.08);
   wing.add(covert);
-  // Two layered cream tips peeking out below the covert.
+  // Two layered cream tips peeking out below and outside the covert: they
+  // sit proud of the wing's outer face and below its bottom edge, so the
+  // cream reads from the front and the side instead of hiding inside the
+  // wing (the old tips were buried in the wing sphere).
   for (let k = 0; k < 2; k += 1) {
     const tip = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), creamMat);
-    tip.scale.set(0.14, 0.34, 0.42);
-    tip.position.set(sign * 0.08, -0.30 - k * 0.02, -0.18 + k * 0.30);
+    tip.scale.set(0.17, 0.34, 0.44);
+    tip.position.set(sign * 0.16, -0.37 - k * 0.02, -0.10 + k * 0.26);
     tip.rotation.x = -0.15 * k;
     wing.add(tip);
   }
@@ -166,8 +171,11 @@ function buildLeg(sign, legMat) {
 
 export function buildTurkey(textures) {
   const group = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({ map: textures.feather, color: C.bodyBrown, roughness: 0.9 });
-  const wingMat = new THREE.MeshStandardMaterial({ map: textures.feather, color: C.wingBrown, roughness: 0.9 });
+  // Body and wings are flat colours: the old feather map (dark #6b4423
+  // base) multiplied by the brown tints rendered the body near-black
+  // (#1f0802) under the sunset grade. Plain C.bodyBrown / C.wingBrown.
+  const bodyMat = new THREE.MeshStandardMaterial({ color: C.bodyBrown, roughness: 0.9 });
+  const wingMat = new THREE.MeshStandardMaterial({ color: C.wingBrown, roughness: 0.9 });
   const darkBrownMat = new THREE.MeshStandardMaterial({ color: C.darkBrown, roughness: 0.9 });
   const creamMat = new THREE.MeshStandardMaterial({ color: C.cream, roughness: 0.9 });
   const headMat = new THREE.MeshStandardMaterial({ color: C.orange, roughness: 0.7 });
@@ -214,7 +222,9 @@ export function buildTurkey(textures) {
     eye.position.set(sign * 0.115, 0.11, 0.185);
     head.add(eye);
     const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), pupilMat);
-    pupil.position.set(sign * 0.10, 0.13, 0.275);
+    // Outer-front quadrant of the eyeball, so a black sliver still reads
+    // from the side instead of hiding behind the eye white.
+    pupil.position.set(sign * 0.15, 0.13, 0.28);
     head.add(pupil);
   }
   const beak = new THREE.Mesh(new THREE.ConeGeometry(0.10, 0.32, 10), beakMat);
@@ -249,10 +259,35 @@ export function buildTurkey(textures) {
     tail.add(feather);
     tailFeathers.push(feather);
   }
+  // Solid banded fan backing behind the feathers: same tail gradient, so
+  // the fan reads as one solid banded mass from the side (no sky gaps
+  // between bare blades) while the rear still shows orange → tan → brown.
+  // Extruded 0.10 deep so it has a real silhouette from the side; its
+  // front face sits just behind the feather bases (z -0.10) and its top
+  // edge stays below the feather tips, which poke out above it.
+  const fanShape = new THREE.Shape();
+  fanShape.moveTo(-0.75, 0);
+  fanShape.absarc(0, 0, 0.75, Math.PI, 0, true);
+  fanShape.lineTo(-0.75, 0);
+  const fanBackGeo = new THREE.ExtrudeGeometry(fanShape, { steps: 1, depth: 0.10, bevelEnabled: false, curveSegments: 16 });
+  fanBackGeo.translate(0, 0, -0.20);
+  {
+    // Remap the cap UVs so the banding tracks height like the feathers
+    // (v=0 brown at the base, v=1 orange at the top edge).
+    const uv = fanBackGeo.attributes.uv;
+    const pos = fanBackGeo.attributes.position;
+    for (let i = 0; i < pos.count; i += 1) {
+      uv.setXY(i, (pos.getX(i) + 0.75) / 1.5, Math.min(1, Math.max(0, (pos.getY(i) - 0.05) / 0.80)));
+    }
+  }
+  const fanBack = new THREE.Mesh(fanBackGeo, featherMat);
+  tail.add(fanBack);
   // Brown covert mound over the feather bases at the rear of the body.
+  // Small and low now: the old ball (y top +0.20) covered the feather
+  // bases from behind.
   const rump = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 10), darkBrownMat);
-  rump.scale.set(0.6, 0.5, 0.36);
-  rump.position.set(0, -0.05, -0.05);
+  rump.scale.set(0.5, 0.36, 0.28);
+  rump.position.set(0, -0.15, -0.04);
   tail.add(rump);
   group.add(tail);
 
