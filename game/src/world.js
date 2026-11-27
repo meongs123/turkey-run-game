@@ -45,7 +45,10 @@ export class World {
     this.entities = [];
     this.spawnTimer = 1.2;
     this.knifeTimer = 2;
-    this.ovenTimer = 5;
+    // First oven is due 2 s after entering the kitchen (~725 m): the
+    // kitchen is only 300 m long (~23 s of travel), so a 5 s first wait
+    // plus a 7–10 s gap left room for at most one oven per run.
+    this.ovenTimer = 2;
     this.player = {
       lane: 0, y: 0, vy: 0, jumping: false, coyote: 0,
       dashT: 0, dashCd: 0, hidden: 0, invuln: 0, flare: 0,
@@ -225,11 +228,12 @@ export class World {
   }
 
   // True while an oven is warning or burning: knives stay holstered for
-  // the whole window, so an oven can never coincide with a knife — and
-  // therefore never with knife + farmer-corner together. Deliberately
-  // warn/hot only, not the idle approach: suppressing knives from the
-  // moment an oven is placed 48 m out would gut the kitchen's knives
-  // for ~4 s of every 7–10 s oven cycle.
+  // the whole window, so no NEW knife spawns during a warn/hot. It says
+  // nothing about knives already on the track — those are kept clear of
+  // the blast by the ±12 m placement band in _spawn — and nothing about
+  // the farmer: corner mode is gap-driven and CAN coincide with an oven
+  // warn (an obstacle hit drops the gap below 6 m). The old comment
+  // claiming oven + knife + corner could never coincide was wrong.
   _ovenPending() {
     return this.entities.some((e) => e.active && e.kind === 'oven'
       && (e.ovenPhase === 'warn' || e.ovenPhase === 'hot'));
@@ -259,9 +263,18 @@ export class World {
         });
         // Second obstacle at the same z, different lane — a slalom, never
         // a wall: _freeLaneAt re-checked after the first one landed.
-        if (this.rng.chance(SPAWN.doubleChance)) {
+        // F-A guard: no double inside the oven's ~12 m hot window — if
+        // the double's free lane were the oven lane, the player would
+        // have to sit in a burning lane to clear the double.
+        // The second obstacle may only land if TWO lanes are still free
+        // at this z: taking the last free lane would wall the track
+        // (a knife spawned a step earlier in the remaining lane already
+        // blocks it — the double+knife wall this used to build).
+        const ovenNearSpawn = this.entities.some((e) => e.active && e.kind === 'oven'
+          && Math.abs(e.z - z) < 12);
+        if (!ovenNearSpawn && this.rng.chance(SPAWN.doubleChance)) {
           const free2 = this._freeLaneAt(z);
-          if (free2.length > 0) {
+          if (free2.length > 1) {
             const laneIdx2 = free2[this.rng.int(0, free2.length - 1)];
             const kind2 = stage === 2
               ? this.rng.pick(['crate', 'fence', 'pumpkin'])
@@ -290,13 +303,16 @@ export class World {
     }
     // Swinging knives appear from 250 m, faster in the kitchen — but never
     // while an oven is pending, and never into a lane already blocked.
+    // A knife may only land if TWO lanes are still free at its z: taking
+    // the last free lane would wall the track together with a double
+    // that spawned a step earlier in the other two lanes.
     if (this.distance > SPAWN.knifeFrom && !this._ovenPending()) {
       this.knifeTimer -= STEP;
       if (this.knifeTimer <= 0) {
         this.knifeTimer = this.stage === 2 ? 2.2 : 3.2;
         const z = this.distance + SPAWN.ahead;
         const free = this._freeLaneAt(z);
-        if (free.length > 0) {
+        if (free.length > 1) {
           const laneIdx = free[this.rng.int(0, free.length - 1)];
           this.entities.push({
             kind: 'knife', z, lane: LANES[laneIdx], active: true, passed: false, y: 0, phase: this.rng.next() * 6,
@@ -307,19 +323,58 @@ export class World {
       }
     }
     // Kitchen oven: one blast at a time, one lane wide, placed ahead.
-    // Held back while a knife sits within 35 m ahead, so the telegraph
-    // never has to compete with a blade for the player's attention.
+    // Placement gate (C1 + F-B, reconciled): the oven may only land
+    // where no knife sits within ±12 m of its spawn z, in ANY lane.
+    // That band is the player's recovery room on both sides of the
+    // blast — a knife 5 m before an oven was a cheap shot the old gate
+    // allowed (it only forbade knives 13–48 m ahead of the oven). The
+    // old 35 m-ahead gate starved the oven completely: a knife dwells
+    // 2.8 s inside a 35 m window against a 2.2 s knife cadence, so the
+    // window was empty only ~3% of kitchen samples. A ±12 m band is
+    // narrow enough to clear often, and knives spawn 70 m out — 22+ m
+    // beyond an oven's spawn z — so none can enter the band after
+    // placement, and none spawn at all during warn/hot (_ovenPending).
+    // A blocked placement does NOT reset the timer to 1.2 s: it stays
+    // at 0 and is re-checked every step, so the oven lands the moment
+    // the band clears (at most one knife cycle later) instead of
+    // missing the clearing window between retries. F-A, the reverse
+    // direction of the double guard above: doubles spawn 70 m out,
+    // ovens 48 m out, so an oven can land ON an earlier double — but
+    // deferring the oven while ANY double is within 12 m would starve
+    // it (doubles sit ~23 m apart, so the candidate is inside some
+    // double's 12 m window most of the time). Instead the oven lane is
+    // picked AROUND the doubles: a double within 12 m of the candidate
+    // leaves one free lane, and the oven must not take that lane, or
+    // the player would have to sit in a burning lane to clear the
+    // double. Only when every lane is some nearby double's free lane
+    // (two doubles, different free lanes) is the placement deferred.
+    // An oven whose z would fall past the finish line is never placed:
+    // it could never warn before the escape.
     if (this.distance > SPAWN.ovenFrom && !this._ovenPlaced()) {
       this.ovenTimer -= STEP;
       if (this.ovenTimer <= 0) {
-        const knifeNear = this.entities.some((e) => e.active && e.kind === 'knife'
-          && e.z > this.distance && e.z < this.distance + 35);
-        if (knifeNear) {
-          this.ovenTimer = 1.2;
+        const ovenZ = this.distance + OVEN.ahead;
+        const knifeInBand = this.entities.some((e) => e.active && e.kind === 'knife'
+          && Math.abs(e.z - ovenZ) < 12);
+        const dangerLanes = new Set();
+        for (const e of this.entities) {
+          if (!e.active || e.kind === 'corn' || e.kind === 'oven') continue;
+          if (Math.abs(e.z - ovenZ) < 12) {
+            const blocked = this._blockedLanesAt(e.z);
+            if (blocked.filter(Boolean).length >= 2) {
+              for (let i = 0; i < 3; i += 1) {
+                if (!blocked[i]) dangerLanes.add(LANES[i]);
+              }
+            }
+          }
+        }
+        const safeLanes = LANES.filter((lane) => !dangerLanes.has(lane));
+        if (knifeInBand || safeLanes.length === 0 || ovenZ > TRACK_LENGTH) {
+          this.ovenTimer = 0;
         } else {
           this.ovenTimer = this.rng.range(OVEN.minGap, OVEN.maxGap);
           this.entities.push({
-            kind: 'oven', z: this.distance + OVEN.ahead, lane: this.rng.pick(LANES),
+            kind: 'oven', z: ovenZ, lane: this.rng.pick(safeLanes),
             active: true, passed: false, y: 0, phase: this.rng.next() * 6,
             ovenPhase: 'idle', ovenT: 0,
           });

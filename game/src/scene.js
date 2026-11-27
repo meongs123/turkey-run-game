@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { makeRng } from './rng.js';
 
-const POOL = { fence: 10, hay: 8, pumpkin: 8, crate: 8, corn: 32, knife: 6, oven: 2 };
+const POOL = { fence: 12, hay: 12, pumpkin: 12, crate: 12, corn: 40, knife: 6, oven: 2 };
 
 function skyMaterial() {
   return new THREE.ShaderMaterial({
@@ -378,9 +378,6 @@ export function buildFarm(scene, textures) {
   const board = new THREE.Mesh(new THREE.BoxGeometry(8, 1.6, 0.2), new THREE.MeshStandardMaterial({ map: textures.sign, roughness: 0.9 }));
   board.position.set(0, 6.2, 0);
   gate.add(board);
-  const gateGlow = new THREE.Mesh(new THREE.PlaneGeometry(10, 8), new THREE.MeshBasicMaterial({ color: 0xa8e06a, transparent: true, opacity: 0.25, side: THREE.DoubleSide }));
-  gateGlow.position.set(0, 4, -1);
-  gate.add(gateGlow);
   gate.position.set(0, 0, -1000);
   scene.add(gate);
 
@@ -457,6 +454,10 @@ export function buildFarm(scene, textures) {
   };
 
   let lastShadowZ = -100;
+  // Dev warning for a pool overflow (F-C): a live entity with no free
+  // slot would otherwise render nothing while still colliding. Once per
+  // kind per session, so a sustained overflow does not spam the console.
+  const poolWarned = {};
 
   return {
     sun,
@@ -470,7 +471,13 @@ export function buildFarm(scene, textures) {
         const pool = pools[e.kind];
         if (!pool) continue;
         const slot = pool[byKind[e.kind]];
-        if (!slot) continue;
+        if (!slot) {
+          if (!poolWarned[e.kind]) {
+            poolWarned[e.kind] = true;
+            console.warn('[gobble] pool overflow: no free slot for', e.kind, '- raise POOL.' + e.kind);
+          }
+          continue;
+        }
         byKind[e.kind] += 1;
         slot.mesh.visible = true;
         slot.mesh.position.set(e.lane, e.y || 0, -e.z);
@@ -502,7 +509,7 @@ export function buildFarm(scene, textures) {
           const core = slot.mesh.userData.core;
           if (e.ovenPhase === 'warn') {
             marker.visible = true;
-            marker.material.opacity = 0.35 + 0.3 * Math.sin(world.time * 10);
+            marker.material.opacity = 0.45 + 0.25 * Math.sin(world.time * 10);
             flame.visible = false;
             core.visible = false;
             this._ovenWarn = true;

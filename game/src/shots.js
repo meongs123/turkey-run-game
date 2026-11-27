@@ -85,11 +85,12 @@ export function stageShot(name, world) {
   }
   if (name === 'nearmiss') {
     // Fast-forward to the kitchen, then stage a knife swing right ahead.
-    // 73 s of honest autopilot reaches 732.8 m (no teleport needed) and
-    // puts the first oven ~25 m ahead of the staged camera, so its
-    // glowing door reads in frame instead of filling the frame edge.
+    // 75 s of honest autopilot reaches 757.7 m (no teleport needed) and
+    // the first oven — spawned at 725 m, z 772.7, lane -2.6 — sits 15 m
+    // ahead in warn, its pad pulsing, so the blast reads in frame next
+    // to the staged blade instead of filling the frame edge.
     world.state = 'play';
-    runSteps(world, 73, 1.2, true);
+    runSteps(world, 75, 1.2, true);
     // Fallback only: the pilot normally clears 720 m by now; keep the
     // guard so a bad-luck run still stages in the kitchen.
     if (world.distance < 720) world.distance = 740;

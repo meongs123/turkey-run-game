@@ -109,7 +109,7 @@ function applyEvents(events) {
   }
   if (events & EVENT_OVEN_WARN) {
     audio.ovenWarn();
-    hud.toast('OVEN BLAST — MOVE!');
+    hud.toast('OVEN BLAST — MOVE!', 1);
   }
   if (events & EVENT_OVEN_HOT) {
     audio.ovenBlast();

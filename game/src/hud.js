@@ -26,6 +26,7 @@ export function createHud() {
   const titleBest = el('title-best');
   let bannerTimer = 0;
   let toastTimer = 0;
+  let toastPriority = 0;
 
   function show(name) {
     for (const key of Object.keys(screens)) {
@@ -58,10 +59,17 @@ export function createHud() {
     bannerTimer = 1.5;
   }
 
-  function toast(text) {
+  // Single-slot toast with priority (F-D): the oven warn is priority 1
+  // and lives 1.1 s — longer than the 1.0 s warn — so a routine
+  // "CLOSE! +50" near-miss toast cannot overwrite "OVEN BLAST — MOVE!"
+  // mid-warn. Priority resets when the toast expires, so later toasts
+  // show normally.
+  function toast(text, priority = 0) {
+    if (priority < toastPriority && toastTimer > 0) return;
+    toastPriority = priority;
     toastEl.textContent = text;
     toastEl.classList.remove('hidden');
-    toastTimer = 0.9;
+    toastTimer = priority > 0 ? 1.1 : 0.9;
   }
 
   function update(world, dt) {
@@ -71,7 +79,10 @@ export function createHud() {
     }
     if (toastTimer > 0) {
       toastTimer -= dt;
-      if (toastTimer <= 0) toastEl.classList.add('hidden');
+      if (toastTimer <= 0) {
+        toastEl.classList.add('hidden');
+        toastPriority = 0;
+      }
     }
     scoreEl.textContent = String(Math.floor(world.score)).padStart(6, '0');
     bestEl.textContent = `BEST ${world.best}`;

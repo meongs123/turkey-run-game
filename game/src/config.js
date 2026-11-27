@@ -52,9 +52,13 @@ export const SPAWN = {
   ahead: 70,
   behind: 12,
   // Second obstacle at the same z: 0.35 — always in a different lane, and
-  // world.js refuses any spawn that would leave zero free lanes at that z
-  // (obstacle, knife and oven all check the same _freeLaneAt helper), so
-  // at least one of the three lanes is open at every distance.
+  // every spawn leaves at least one lane free at its z afterwards
+  // (obstacle, double, knife and oven all check the same _freeLaneAt
+  // helper, and the double/knife refuse to take the last free lane), so
+  // at least one of the three lanes is open at every distance. The double
+  // is additionally suppressed within 12 m of an active oven, and an oven
+  // never takes a nearby double's only free lane, so the oven's ~12 m hot
+  // window cannot turn the double's free lane into a burning lane (world.js).
   doubleChance: 0.35,
   cornChance: 0.85,
   cornMax: 4,
@@ -64,12 +68,20 @@ export const SPAWN = {
 // warnRange is the distance at which the warning starts (≈1.2 s of travel
 // at kitchen speed, never below the 0.8 s fairness floor); warnTime is the
 // glow + HUD + audio telegraph, activeTime the burning window. The blast
-// covers one lane only and never overlaps a knife spawn (see world.js).
+// covers one lane only. Placement keeps every knife ±12 m clear of the
+// oven's spawn z (any lane); its lane is picked around any double
+// obstacle within 12 m, so the oven never takes the double's only free
+// lane (world.js); no NEW knife spawns while it warns/burns. Corner
+// mode is gap-driven and can still coincide with an oven warn.
+// minGap/maxGap is the quiet time between blasts: 3–5 s, so the 300 m
+// kitchen (~23 s) holds two or three ovens per run instead of one —
+// and the second blast still lands before the finish line, where a
+// 7–10 s gap pushed it past 1000 m and it could never warn.
 export const OVEN = {
   warnTime: 1.0,
   activeTime: 0.8,
-  minGap: 7,
-  maxGap: 10,
+  minGap: 3,
+  maxGap: 5,
   ahead: 48,
   warnRange: 16,
   halfWidth: 1.15,

@@ -15,7 +15,12 @@ fences, pumpkin patch, chickens and cows), the Barn is stacked with crates
 and barrels, and the Kitchen floor is chequered tile. In the Kitchen the
 oven is a real hazard: it warns with a glowing blast pad, flaring doors,
 a HUD callout and a rising hiss a full second before it fires down one
-lane — change lanes or dash clear, and never while a knife is swinging.
+lane — change lanes or dash clear. Two or three ovens blast per run; each
+is placed where no knife sits within 12 m either side of it, and no new
+knife spawns while it warns or burns, so the blast never has to be dodged
+through a blade. (A knife already swinging elsewhere on the track can
+still be out there — the guarantee is the 12 m clear band, not the whole
+kitchen.)
 3 stages (Farmyard → Barn → Kitchen), 3 feather-lives, dash with stamina,
 corn +25, near miss +50 (×2 in the Kitchen), escape bonus +500. Farmer
 Hodge chases in three states: chase, search, and corner — when the gap
@@ -49,10 +54,14 @@ canvas paintings, audio is WebAudio synthesis, the world is seeded so every
 `?shot=` preset reproduces the same frame. Fixed timestep 1/60 s with render
 interpolation, damped camera (1-exp(-dt*6)), FOV kick on dash, decaying
 trauma shake, object pooling, InstancedMesh dressing, and small bounded
-per-frame allocations (measured ~0.5 ms/render on SwiftShader, per-render
-cost with gl.finish flush). Spawns guarantee at least one free lane at every
-distance (obstacles, knives and the oven all check the same free-lane
-helper), and the oven never fires while a knife is swinging. Hand-rolled post chain: HalfFloat render target → half-res bloom
+per-frame allocations (measured 0.59–4.11 ms/render median across presets
+on SwiftShader with gl.finish flush; worst preset median 4.11 ms, ~4× under
+the 16.7 ms frame budget — the band varies run to run on this VM, so no
+single sub-millisecond figure is claimed). Spawns guarantee at least one
+free lane at every distance (obstacles, knives and the oven all check the
+same free-lane helper; a double or a knife refuses to take the last free
+lane), and the oven never takes a nearby double's only free lane, so its
+hot window cannot force the player into a burning lane. Hand-rolled post chain: HalfFloat render target → half-res bloom
 (threshold 0.75, strength 0.55) → grade pass (ACES approx + sRGB + vignette +
 radial chromatic aberration + grain) → FXAA. Quality presets Low / Medium /
 High with auto-detect and auto-degrade.
