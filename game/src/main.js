@@ -144,6 +144,7 @@ function stepWorld(actions) {
   const events = world.step(actions, input.steer());
   applyEvents(events);
   if (world.state === STATE_END) hud.showEnd(world);
+  if (world.state === STATE_PAUSE) hud.show('pause');
   return events;
 }
 
